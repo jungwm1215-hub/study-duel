@@ -430,6 +430,102 @@ function BattleCard({battle,st,setSt,myStudySecs}) {
   );
 }
 
+// ── 날짜 범위 피커 ────────────────────────────────
+function DateRangePicker({startDate,endDate,onChange}) {
+  const now=new Date();
+  const [vy,setVy]=useState(now.getFullYear());
+  const [vm,setVm]=useState(now.getMonth());
+  const [picking,setPicking]=useState("start"); // "start" | "end"
+
+  function toKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+  function parseKey(k){ const p=k.split("-"); return new Date(+p[0],+p[1]-1,+p[2]); }
+  function fmtDisp(k){ if(!k) return "?"; const d=parseKey(k); return `${d.getMonth()+1}/${d.getDate()}`; }
+
+  function changeMonth(dir){
+    let m=vm+dir, y=vy;
+    if(m>11){m=0;y++;} if(m<0){m=11;y--;}
+    setVm(m); setVy(y);
+  }
+
+  function clickDay(k){
+    if(picking==="start"){
+      onChange(k, k>endDate?k:endDate);
+      setPicking("end");
+    } else {
+      if(k<startDate){ onChange(k,startDate); }
+      else { onChange(startDate,k); }
+      setPicking("start");
+    }
+  }
+
+  const first=new Date(vy,vm,1).getDay();
+  const last=new Date(vy,vm+1,0).getDate();
+  const todayK=toKey(now);
+
+  const dayBtnBase={width:"100%",aspectRatio:"1",border:"none",borderRadius:6,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"};
+
+  return (
+    <div style={{background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:12,padding:"12px"}}>
+      {/* 선택 모드 표시 */}
+      <div style={{display:"flex",gap:6,marginBottom:10}}>
+        {[["start","시작일"],["end","종료일"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setPicking(v)} style={{flex:1,padding:"6px",background:picking===v?"rgba(66,165,245,0.2)":"transparent",border:`1px solid ${picking===v?"#42a5f5":"rgba(255,255,255,0.15)"}`,borderRadius:8,color:picking===v?"#42a5f5":"rgba(255,255,255,0.5)",fontSize:11,cursor:"pointer"}}>
+            {l}: <span style={{color:"#fff",fontWeight:500}}>{fmtDisp(v==="start"?startDate:endDate)}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 월 네비게이션 */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <button onClick={()=>changeMonth(-1)} style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:8,width:34,height:34,color:"#fff",cursor:"pointer",fontSize:18,fontWeight:500}}>‹</button>
+        <span style={{fontFamily:"'Oswald',sans-serif",fontSize:13,color:"#fff",letterSpacing:1}}>{vy}년 {vm+1}월</span>
+        <button onClick={()=>changeMonth(1)} style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:8,width:34,height:34,color:"#fff",cursor:"pointer",fontSize:18,fontWeight:500}}>›</button>
+      </div>
+
+      {/* 요일 헤더 */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+        {["일","월","화","수","목","금","토"].map(d=>(
+          <div key={d} style={{textAlign:"center",fontSize:10,color:"rgba(255,255,255,0.3)",padding:"2px 0"}}>{d}</div>
+        ))}
+      </div>
+
+      {/* 날짜 그리드 */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+        {Array.from({length:first}).map((_,i)=><div key={`e${i}`}/>)}
+        {Array.from({length:last},(_,i)=>{
+          const d=i+1;
+          const k=`${vy}-${String(vm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+          const isStart=k===startDate, isEnd=k===endDate;
+          const inRange=startDate&&endDate&&k>startDate&&k<endDate;
+          const isToday=k===todayK;
+          let bg="transparent", color="rgba(255,255,255,0.6)", br=6;
+          if(isStart||isEnd){ bg="#42a5f5"; color="#fff"; }
+          else if(inRange){ bg="rgba(66,165,245,0.2)"; color="#fff"; br=0; }
+          if(isStart&&isEnd){ br=6; }
+          else if(isStart){ br="6px 0 0 6px"; }
+          else if(isEnd){ br="0 6px 6px 0"; }
+          return (
+            <button key={k} onClick={()=>clickDay(k)}
+              style={{...dayBtnBase,background:bg,color,borderRadius:br,
+                outline:isToday&&!isStart&&!isEnd?"1px solid rgba(255,255,255,0.4)":"none",
+                fontWeight:isStart||isEnd?600:400}}>
+              {d}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 결과 요약 */}
+      {startDate&&endDate&&(
+        <div style={{marginTop:10,borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:8,display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{startDate} ~ {endDate}</span>
+          <span style={{fontSize:11,color:"#42a5f5",fontWeight:500}}>총 {Math.max(1,Math.ceil((new Date(endDate)-new Date(startDate))/86400000)+1)}일</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 대결 만들기 탭 ────────────────────────────────
 function BattleTab({st,setSt,setTab}) {
   const [type,setType]=useState("1v1");
@@ -508,19 +604,13 @@ function BattleTab({st,setSt,setTab}) {
           </div>
         </div>
 
-        {/* 기간 직접 설정 */}
+        {/* 기간 설정 */}
         <div>
           <p style={{fontSize:10,color:"rgba(255,255,255,0.4)",margin:"0 0 6px",letterSpacing:1}}>기간 설정</p>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}
-              style={{flex:1,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"9px 10px",color:"#fff",fontSize:12,outline:"none",fontFamily:"inherit",colorScheme:"dark"}}/>
-            <span style={{color:"rgba(255,255,255,0.3)",fontSize:12}}>~</span>
-            <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}
-              style={{flex:1,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"9px 10px",color:"#fff",fontSize:12,outline:"none",fontFamily:"inherit",colorScheme:"dark"}}/>
-          </div>
-          <p style={{fontSize:10,color:"rgba(255,255,255,0.25)",margin:"4px 0 0"}}>
-            총 {Math.max(1,Math.ceil((new Date(endDate)-new Date(startDate))/86400000)+1)}일
-          </p>
+          <DateRangePicker
+            startDate={startDate} endDate={endDate}
+            onChange={(s,e)=>{ setStartDate(s); setEndDate(e); }}
+          />
         </div>
 
         {/* 대결 방식 */}
