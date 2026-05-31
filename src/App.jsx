@@ -1496,7 +1496,7 @@ export default function App() {
 
       {/* 메인 앱 */}
       <div style={mainLayerStyle}>
-        <div style={{height:"100%",overflowY:"auto",display:"flex",justifyContent:"center"}}>
+        <div style={{height:"100%",overflowY:"auto",display:"flex",justifyContent:"center",overscrollBehavior:"none",WebkitOverflowScrolling:"touch"}}>
           <div style={{width:"100%",maxWidth:430,position:"relative",minHeight:"100%"}}>
             <StadiumBg/>
             <div style={{position:"relative",zIndex:1,paddingTop:"max(env(safe-area-inset-top), 44px)",paddingBottom:70}}>
