@@ -1379,6 +1379,7 @@ export default function App() {
     opacity: onbVis?1:0,
     transform: onbVis?"translateX(0)":"translateX(-50%)",
     pointerEvents: onbVis?"auto":"none",
+    visibility: onbVis?"visible":"hidden",
   };
 
   // 그리팅 레이어 스타일 (슬라이드)
@@ -1388,6 +1389,7 @@ export default function App() {
     opacity: greetVis?1:0,
     transform: greetVis?"translateX(0)":"translateX(-50%)",
     pointerEvents: greetVis?"auto":"none",
+    visibility: greetVis?"visible":"hidden",
   };
 
   // 메인 레이어 스타일 (항상 오른쪽에서 슬라이드 인)
@@ -1407,7 +1409,7 @@ export default function App() {
         <div style={{height:"100%",overflowY:"auto",display:"flex",justifyContent:"center"}}>
           <div style={{width:"100%",maxWidth:430,position:"relative",minHeight:"100%"}}>
             <StadiumBg/>
-            <div style={{position:"relative",zIndex:1,paddingTop:48,paddingBottom:70}}>
+            <div style={{position:"relative",zIndex:1,paddingTop:"max(env(safe-area-inset-top), 44px)",paddingBottom:70}}>
               <div style={{padding:"0 16px 8px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <p style={{fontFamily:"'Oswald',sans-serif",fontSize:20,color:"#fff",letterSpacing:3,margin:0}}>STUDY DUEL</p>
                 <button onClick={openNickEdit} style={{background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:20,padding:"4px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
