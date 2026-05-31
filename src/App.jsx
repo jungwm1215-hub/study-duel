@@ -1423,7 +1423,7 @@ export default function App() {
             </div>
             <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(0,0,0,0.85)",borderTop:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(10px)",display:"flex",zIndex:10,paddingBottom:"env(safe-area-inset-bottom)"}}>
               {TABS.map(t=>(
-                <button key={t.id} onClick={()=>handleTabChange(t.id)} style={{flex:1,padding:"10px 0",background:"transparent",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:timerRunning&&t.id!=="timer"?"not-allowed":"pointer",opacity:timerRunning&&t.id!=="timer"?0.3:1}}>
+                <button key={t.id} onClick={()=>handleTabChange(t.id)} style={{flex:1,padding:"14px 0",background:"transparent",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:timerRunning&&t.id!=="timer"?"not-allowed":"pointer",opacity:timerRunning&&t.id!=="timer"?0.3:1}}>
                   <span style={{fontSize:18}}>{t.icon}</span>
                   <span style={{fontSize:9,color:tab===t.id?"#fff":"rgba(255,255,255,0.3)",letterSpacing:0.5}}>{t.label}</span>
                 </button>
