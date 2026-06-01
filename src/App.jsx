@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "./supabase";
 
 // 로컬 날짜를 YYYY-MM-DD로 반환 (UTC 아님)
 function localDateStr(d){
@@ -29,11 +30,12 @@ let _id=Date.now();
 
 const DEF = {
   nickname:"", onboardingDone:false,
+  userId:null, // Supabase users.id
   quests:[], scheduledQuests:[],
   battles:[], totalStudySecs:0, todayStudySecs:0,
   lastStudyDate:null, history:[], calendarData:{},
   sessions:[],
-  lastGreetDate:null, // 연속일수 화면 마지막 표시 날짜
+  lastGreetDate:null,
 };
 
 // ── 연속 일수 계산 ────────────────────────────────
@@ -58,7 +60,17 @@ function calcStreak(calendarData) {
   return streak;
 }
 
-// ── 데일리 인사 화면 ──────────────────────────────
+// ── 캘린더 데이터 병합 (로컬 vs 클라우드 - 더 큰 값 우선) ──
+function mergeCalendarData(local, cloud) {
+  const merged = {...(cloud||{})};
+  Object.entries(local||{}).forEach(([k,v])=>{
+    const cloudDay = merged[k];
+    merged[k] = {
+      focusSecs: Math.max(v.focusSecs||0, cloudDay?.focusSecs||0),
+    };
+  });
+  return merged;
+}
 function DailyGreet({st,setSt,onDone}) {
   const streak=calcStreak(st.calendarData);
   const today=todayStr();
@@ -154,13 +166,74 @@ function Card({children,style={}}) {
 
 // ── 온보딩 ──────────────────────────────────────
 function Onboarding({onDone}) {
+  const [step,setStep]=useState("login"); // "login" | "nickname"
   const [nick,setNick]=useState("");
   const [leaving,setLeaving]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
 
-  function handleStart(){
+  // 구글 로그인 후 리다이렉트 되어 돌아왔을 때 처리
+  useEffect(()=>{
+    async function checkSession(){
+      const { data:{session} } = await supabase.auth.getSession();
+      if(session?.user){
+        setStep("nickname");
+      }
+    }
+    checkSession();
+
+    // auth 상태 변화 감지
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((event, session)=>{
+      if(event==="SIGNED_IN" && session?.user){
+        setStep("nickname");
+      }
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
+  async function handleGoogleLogin(){
+    setLoading(true);
+    setError("");
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin }
+      });
+      if(error) throw error;
+    } catch(e) {
+      setError("로그인에 실패했어요. 다시 시도해주세요.");
+      setLoading(false);
+    }
+  }
+
+  async function handleNickname(){
     if(!nick.trim()) return;
-    setLeaving(true);
-    setTimeout(()=>onDone(nick.trim()), 900);
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      const email = session?.user?.email;
+
+      // users 테이블에 저장
+      if(userId){
+        const { data: existing } = await supabase
+          .from("users").select("id,nickname").eq("id",userId).maybeSingle();
+        if(!existing){
+          await supabase.from("users").insert({
+            id: userId,
+            nickname: nick.trim(),
+            total_study_secs: 0,
+            calendar_data: {},
+          });
+        }
+      }
+
+      setLeaving(true);
+      setTimeout(()=>onDone(nick.trim(), userId), 900);
+    } catch(e){
+      setError("오류가 발생했어요.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -172,16 +245,38 @@ function Onboarding({onDone}) {
           <div style={{fontSize:52,marginBottom:16}}>⚾</div>
           <p style={{fontFamily:"'Oswald',sans-serif",fontSize:30,color:"#fff",letterSpacing:3,margin:"0 0 6px"}}>STUDY DUEL</p>
           <p style={{fontSize:13,color:"rgba(255,255,255,0.45)",margin:"0 0 40px"}}>공부 대결 앱</p>
-          <p style={{fontSize:14,color:"rgba(255,255,255,0.8)",margin:"0 0 12px",fontWeight:500}}>닉네임을 설정하세요</p>
-          <input value={nick} onChange={e=>setNick(e.target.value)} maxLength={15}
-            onKeyDown={e=>e.key==="Enter"&&handleStart()}
-            placeholder="닉네임 입력..."
-            autoFocus
-            style={{width:"100%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:"12px",padding:"14px 16px",color:"#fff",fontSize:"16px",outline:"none",marginBottom:"12px",boxSizing:"border-box",fontFamily:"inherit",textAlign:"center"}}/>
-          <p style={{fontSize:10,color:"rgba(255,255,255,0.25)",margin:"0 0 16px"}}>최대 15자</p>
-          <button onClick={handleStart} style={{width:"100%",padding:"14px",background:nick.trim()?"rgba(255,255,255,0.15)":"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:"12px",color:nick.trim()?"#fff":"rgba(255,255,255,0.3)",fontSize:"15px",cursor:nick.trim()?"pointer":"default",fontFamily:"inherit",letterSpacing:1}}>
-            시작하기 →
-          </button>
+
+          {step==="login"?(
+            <>
+              <p style={{fontSize:14,color:"rgba(255,255,255,0.8)",margin:"0 0 20px",fontWeight:500}}>로그인하고 시작하세요</p>
+              <button onClick={handleGoogleLogin} disabled={loading}
+                style={{width:"100%",padding:"14px",background:"#fff",border:"none",borderRadius:"12px",color:"#333",fontSize:"15px",cursor:"pointer",fontFamily:"inherit",letterSpacing:0.5,display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:12}}>
+                <svg width="20" height="20" viewBox="0 0 48 48">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                </svg>
+                {loading?"로그인 중...":"Google로 시작하기"}
+              </button>
+              {error&&<p style={{fontSize:11,color:"#ef5350",margin:"8px 0 0"}}>{error}</p>}
+            </>
+          ):(
+            <>
+              <p style={{fontSize:14,color:"rgba(255,255,255,0.8)",margin:"0 0 12px",fontWeight:500}}>닉네임을 설정하세요</p>
+              <input value={nick} onChange={e=>setNick(e.target.value)} maxLength={15}
+                onKeyDown={e=>e.key==="Enter"&&handleNickname()}
+                placeholder="닉네임 입력..."
+                autoFocus
+                style={{width:"100%",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:"12px",padding:"14px 16px",color:"#fff",fontSize:"16px",outline:"none",marginBottom:"12px",boxSizing:"border-box",fontFamily:"inherit",textAlign:"center"}}/>
+              <p style={{fontSize:10,color:"rgba(255,255,255,0.25)",margin:"0 0 16px"}}>최대 15자</p>
+              <button onClick={handleNickname} disabled={loading||!nick.trim()}
+                style={{width:"100%",padding:"14px",background:nick.trim()?"rgba(255,255,255,0.15)":"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:"12px",color:nick.trim()?"#fff":"rgba(255,255,255,0.3)",fontSize:"15px",cursor:nick.trim()?"pointer":"default",fontFamily:"inherit",letterSpacing:1}}>
+                {loading?"처리 중...":"시작하기 →"}
+              </button>
+              {error&&<p style={{fontSize:11,color:"#ef5350",margin:"8px 0 0"}}>{error}</p>}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -312,6 +407,15 @@ function BattleCard({battle,st,setSt,myStudySecs}) {
   const isGroup=(battle.members||[]).length>1;
   const members=[{name:st.nickname||"나",secs:myStudySecs,isMe:true},...(battle.members||[])];
   members.sort((a,b)=>b.secs-a.secs);
+  const [codeCopied,setCodeCopied]=useState(false);
+
+  function copyCode(){
+    if(!battle.code) return;
+    navigator.clipboard.writeText(battle.code).then(()=>{
+      setCodeCopied(true);
+      setTimeout(()=>setCodeCopied(false),2000);
+    });
+  }
 
   return (
     <Card style={{padding:"12px 14px"}}>
@@ -328,6 +432,12 @@ function BattleCard({battle,st,setSt,myStudySecs}) {
             {battle.mode==="goal"?`🎯 목표 ${Math.floor((battle.goalSecs||0)/3600)}h`:"⏱ 최다 시간"}
           </span>
           <span style={{fontSize:10,color:"rgba(255,255,255,0.4)",background:"rgba(255,255,255,0.08)",padding:"2px 8px",borderRadius:20}}>D-{Math.max(0,dLeft)}</span>
+          {battle.code&&(
+            <button onClick={copyCode}
+              style={{fontSize:9,color:codeCopied?"#66bb6a":"rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",padding:"2px 7px",borderRadius:20,cursor:"pointer",letterSpacing:0.5}}>
+              {codeCopied?"✓ 복사됨":`🔑 ${battle.code}`}
+            </button>
+          )}
           <button onClick={()=>setSt(p=>({...p,battles:p.battles.map(b=>b.id===battle.id?{...b,status:"cancelled"}:b)}))}
             style={{background:"transparent",border:"none",color:"rgba(255,77,109,0.5)",fontSize:16,cursor:"pointer",padding:"0 2px",lineHeight:1}}>×</button>
         </div>
@@ -536,36 +646,205 @@ function BattleTab({st,setSt,setTab}) {
   const [mode,setMode]=useState("most");
   const [goalHours,setGoalHours]=useState(30);
   const [penalty,setPenalty]=useState("");
+  const [creating,setCreating]=useState(false);
+  const [joinCode,setJoinCode]=useState("");
+  const [joining,setJoining]=useState(false);
+  const [joinError,setJoinError]=useState("");
+  const [tabMode,setTabMode]=useState("create"); // "create" | "join"
   const activeBattle=st.battles.find(b=>b.status==="active");
 
   function addOpponent(){ if(opponents.length<9) setOpponents(v=>[...v,""]); }
   function setOpp(i,val){ setOpponents(v=>v.map((o,j)=>j===i?val:o)); }
   function removeOpp(i){ setOpponents(v=>v.filter((_,j)=>j!==i)); }
 
-  function createBattle(){
+  async function createBattle(){
     const filtered=opponents.filter(o=>o.trim());
     if(!battleName.trim()||!filtered.length||!penalty.trim()) return;
+    setCreating(true);
     const days=Math.ceil((new Date(endDate)-new Date(startDate))/86400000)+1;
-    const battle={
-      id:++_id, type,
-      name:battleName.trim()||null,
-      members:filtered.map(name=>({name,secs:0,isStudying:false})),
-      penalty, mode, days,
-      goalSecs:goalHours*3600,
-      startDate, endDate,
-      status:"active",
-      dailyStudy:{},
-    };
-    setSt(p=>({...p,battles:[...p.battles,battle]}));
-    setTab("main");
+
+    try {
+      // userId 없으면 먼저 유저 등록
+      let userId = st.userId;
+      if(!userId && st.nickname) {
+        const { data: existing } = await supabase
+          .from("users").select("id").eq("nickname", st.nickname).maybeSingle();
+        if(existing) {
+          userId = existing.id;
+        } else {
+          const { data: newUser } = await supabase
+            .from("users").insert({ nickname: st.nickname, total_study_secs: st.totalStudySecs, calendar_data: st.calendarData })
+            .select("id").single();
+          if(newUser) userId = newUser.id;
+        }
+        if(userId) setSt(p=>({...p, userId}));
+      }
+      // 1) Supabase에 대결 생성
+      const { data: battleRow, error: bErr } = await supabase
+        .from("battles")
+        .insert({
+          name: battleName.trim(),
+          created_by: userId||null,
+          type,
+          mode,
+          goal_secs: goalHours*3600,
+          penalty,
+          start_date: startDate,
+          end_date: endDate,
+          status: "active",
+        })
+        .select()
+        .single();
+
+      if(bErr) throw bErr;
+
+      // 2) 나를 battle_members에 추가
+      if(userId) {
+        await supabase.from("battle_members").insert({
+          battle_id: battleRow.id,
+          user_id: userId,
+          nickname: st.nickname,
+          total_secs: st.lastStudyDate===todayStr()?st.todayStudySecs:0,
+          today_secs: st.lastStudyDate===todayStr()?st.todayStudySecs:0,
+          is_studying: false,
+        });
+      }
+
+      // 3) 로컬 상태에도 저장
+      const battle={
+        id: battleRow.id,        // Supabase UUID 사용
+        supabaseId: battleRow.id,
+        code: battleRow.code,    // 초대코드
+        type,
+        name: battleName.trim()||null,
+        members: filtered.map(name=>({name,secs:0,isStudying:false})),
+        penalty, mode, days,
+        goalSecs: goalHours*3600,
+        startDate, endDate,
+        status:"active",
+        dailyStudy:{},
+      };
+      setSt(p=>({...p,battles:[...p.battles,battle]}));
+      setTab("main");
+    } catch(e) {
+      console.error("대결 생성 실패:", e);
+      // Supabase 실패해도 로컬에는 저장
+      const battle={
+        id:++_id, type,
+        name:battleName.trim()||null,
+        members:filtered.map(name=>({name,secs:0,isStudying:false})),
+        penalty, mode, days,
+        goalSecs:goalHours*3600,
+        startDate, endDate,
+        status:"active",
+        dailyStudy:{},
+      };
+      setSt(p=>({...p,battles:[...p.battles,battle]}));
+      setTab("main");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function joinBattle(){
+    if(!joinCode.trim()) return;
+    setJoining(true);
+    setJoinError("");
+    try {
+      // 코드로 대결 찾기
+      const { data: battleRow, error } = await supabase
+        .from("battles")
+        .select("*")
+        .eq("code", joinCode.trim().toUpperCase())
+        .eq("status","active")
+        .single();
+
+      if(error || !battleRow) { setJoinError("대결방을 찾을 수 없어요. 코드를 확인해주세요."); return; }
+
+      // 이미 참가한 대결인지 확인
+      const already = st.battles.find(b=>b.supabaseId===battleRow.id||b.id===battleRow.id);
+      if(already){ setJoinError("이미 참가한 대결이에요."); return; }
+
+      // 멤버로 추가
+      if(st.userId){
+        await supabase.from("battle_members").insert({
+          battle_id: battleRow.id,
+          user_id: st.userId,
+          nickname: st.nickname,
+          total_secs: st.lastStudyDate===todayStr()?st.todayStudySecs:0,
+          today_secs: st.lastStudyDate===todayStr()?st.todayStudySecs:0,
+          is_studying: false,
+        });
+      }
+
+      // 기존 멤버 불러오기
+      const { data: members } = await supabase
+        .from("battle_members")
+        .select("*")
+        .eq("battle_id", battleRow.id);
+
+      const otherMembers = (members||[])
+        .filter(m=>m.user_id!==st.userId)
+        .map(m=>({name:m.nickname, secs:m.today_secs||0, isStudying:m.is_studying||false}));
+
+      const battle={
+        id: battleRow.id,
+        supabaseId: battleRow.id,
+        code: battleRow.code,
+        type: battleRow.type,
+        name: battleRow.name,
+        members: otherMembers,
+        penalty: battleRow.penalty,
+        mode: battleRow.mode,
+        goalSecs: battleRow.goal_secs,
+        startDate: battleRow.start_date,
+        endDate: battleRow.end_date,
+        status: "active",
+        dailyStudy:{},
+      };
+      setSt(p=>({...p,battles:[...p.battles,battle]}));
+      setTab("main");
+    } catch(e){
+      setJoinError("오류가 발생했어요. 다시 시도해주세요.");
+    } finally {
+      setJoining(false);
+    }
   }
 
 
 
   return (
     <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:10}}>
-      <p style={{fontFamily:"'Oswald',sans-serif",fontSize:16,color:"rgba(255,255,255,0.9)",letterSpacing:2,margin:0}}>새 대결 만들기</p>
+      <p style={{fontFamily:"'Oswald',sans-serif",fontSize:16,color:"rgba(255,255,255,0.9)",letterSpacing:2,margin:0}}>대결</p>
 
+      {/* 만들기 / 참가 탭 */}
+      <div style={{display:"flex",gap:6}}>
+        {[["create","⚔️ 새 대결 만들기"],["join","🔑 코드로 참가"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setTabMode(v)}
+            style={{flex:1,padding:"9px",background:tabMode===v?"rgba(255,255,255,0.15)":"transparent",border:`1px solid ${tabMode===v?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.12)"}`,borderRadius:10,color:tabMode===v?"#fff":"rgba(255,255,255,0.4)",fontSize:12,cursor:"pointer"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* 코드로 참가 */}
+      {tabMode==="join"&&(
+        <Card style={{padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+          <p style={{fontSize:12,color:"rgba(255,255,255,0.6)",margin:0}}>상대방에게 받은 초대코드를 입력하세요</p>
+          <input value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder="예: AB12CD"
+            maxLength={6}
+            style={{width:"100%",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:8,padding:"12px",color:"#fff",fontSize:20,outline:"none",fontFamily:"'Oswald',sans-serif",boxSizing:"border-box",textAlign:"center",letterSpacing:6}}/>
+          {joinError&&<p style={{fontSize:11,color:"#ef5350",margin:0,textAlign:"center"}}>{joinError}</p>}
+          <button onClick={joinBattle} disabled={joining||!joinCode.trim()}
+            style={{width:"100%",padding:12,background:joinCode.trim()?"rgba(66,165,245,0.2)":"rgba(255,255,255,0.05)",border:`1px solid ${joinCode.trim()?"rgba(66,165,245,0.4)":"rgba(255,255,255,0.1)"}`,borderRadius:10,color:joinCode.trim()?"#42a5f5":"rgba(255,255,255,0.2)",fontSize:14,cursor:joinCode.trim()?"pointer":"default",fontFamily:"inherit"}}>
+            {joining?"참가 중...":"참가하기 →"}
+          </button>
+        </Card>
+      )}
+
+      {/* 새 대결 만들기 */}
+      {tabMode==="create"&&(
+      <>
       <Card style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
         {/* 대결 이름 */}
         <div>
@@ -642,10 +921,12 @@ function BattleTab({st,setSt,setTab}) {
         </div>
       </Card>
 
-      <button onClick={createBattle} disabled={!battleName.trim()||!opponents.filter(o=>o.trim()).length||!penalty.trim()}
+      <button onClick={createBattle} disabled={creating||!battleName.trim()||!opponents.filter(o=>o.trim()).length||!penalty.trim()}
         style={{width:"100%",padding:13,background:battleName.trim()&&opponents.filter(o=>o.trim()).length&&penalty.trim()?"rgba(255,255,255,0.15)":"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:12,color:battleName.trim()&&opponents.filter(o=>o.trim()).length&&penalty.trim()?"#fff":"rgba(255,255,255,0.25)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-        대결 시작 ⚾
+        {creating?"생성 중...":"대결 시작 ⚾"}
       </button>
+      </>
+      )}
 
       {/* 진행 중인 대결 목록 */}
       {st.battles.filter(b=>b.status==="active").length>0&&(
@@ -821,10 +1102,26 @@ function TimerTab({st,setSt,running,setRunning,tab,setTab}) {
     const start=sessionStartRef.current;
     const end=Date.now();
     sessionStartRef.current=null;
-    if(end-start<5000) return; // 5초 미만 무시
+    if(end-start<5000) return;
     setSt(p=>({...p, sessions:[...(p.sessions||[]),{start,end}]}));
+
+    // Supabase: is_studying=false 로 업데이트
+    setSt(p=>{
+      if(!p.userId) return p;
+      const activeBattles=p.battles.filter(b=>b.status==="active"&&b.supabaseId);
+      activeBattles.forEach(async b=>{
+        try {
+          await supabase.from("battle_members")
+            .update({ is_studying:false, last_updated: new Date().toISOString() })
+            .eq("battle_id", b.supabaseId)
+            .eq("user_id", p.userId);
+        } catch(e){}
+      });
+      return p;
+    });
   }
 
+  const syncCountRef=useRef(0);
   useEffect(()=>{
     if(!running)return;
     const t=setInterval(()=>{
@@ -833,9 +1130,25 @@ function TimerTab({st,setSt,running,setRunning,tab,setTab}) {
         const cal={...p.calendarData};
         const dayData=cal[today]||{focusSecs:0};
         cal[today]={...dayData,focusSecs:(dayData.focusSecs||0)+1};
+        const newTodaySecs=p.lastStudyDate===today?p.todayStudySecs+1:1;
+
+        // 10초마다 Supabase battle_members 동기화
+        syncCountRef.current=(syncCountRef.current||0)+1;
+        if(p.userId && syncCountRef.current%10===0){
+          const activeBattles=p.battles.filter(b=>b.status==="active"&&b.supabaseId);
+          activeBattles.forEach(async b=>{
+            try {
+              await supabase.from("battle_members")
+                .update({ today_secs: newTodaySecs, is_studying:true, last_updated: new Date().toISOString() })
+                .eq("battle_id", b.supabaseId)
+                .eq("user_id", p.userId);
+            } catch(e){}
+          });
+        }
+
         return {
           ...p,
-          todayStudySecs:p.lastStudyDate===today?p.todayStudySecs+1:1,
+          todayStudySecs: newTodaySecs,
           lastStudyDate:today,
           totalStudySecs:p.totalStudySecs+1,
           calendarData:cal,
@@ -1077,7 +1390,23 @@ function TimerTab({st,setSt,running,setRunning,tab,setTab}) {
         </div>
 
         <div style={{display:"flex",gap:10,marginTop:16}}>
-          <button onClick={()=>{ sessionStartRef.current=Date.now(); setRunning(true); setFullscreen(true); }}
+          <button onClick={()=>{
+            sessionStartRef.current=Date.now();
+            setRunning(true);
+            setFullscreen(true);
+            // Supabase: is_studying=true 업데이트
+            const activeBattles=st.battles.filter(b=>b.status==="active"&&b.supabaseId);
+            if(st.userId && activeBattles.length){
+              activeBattles.forEach(async b=>{
+                try {
+                  await supabase.from("battle_members")
+                    .update({ is_studying:true, last_updated: new Date().toISOString() })
+                    .eq("battle_id", b.supabaseId)
+                    .eq("user_id", st.userId);
+                } catch(e){}
+              });
+            }
+          }}
             disabled={running}
             style={{padding:"11px 28px",background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.25)",borderRadius:12,color:"#fff",fontSize:14,cursor:"pointer",fontFamily:"inherit",opacity:running?0.4:1}}>
             ▶ 시작
@@ -1422,6 +1751,7 @@ export default function App() {
   const [timerRunning,setTimerRunning]=useState(false);
   const [editingNick,setEditingNick]=useState(false);
   const [nickInput,setNickInput]=useState("");
+  const [authLoading,setAuthLoading]=useState(true); // 세션 확인 전 로딩
 
   // 화면 전환: "onboarding" | "greet" | "main"
   const today=todayStr();
@@ -1434,6 +1764,188 @@ export default function App() {
 
   useEffect(()=>{ try{localStorage.setItem("study-duel",JSON.stringify(st));}catch{} },[st]);
 
+  // ── Supabase Auth: 로그인 상태 감지 ──
+  useEffect(()=>{
+    async function handleAuth(){
+      // PKCE: URL에 ?code= 파라미터가 있으면 세션 교환
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      if(code){
+        await supabase.auth.exchangeCodeForSession(code);
+        window.history.replaceState(null,"",window.location.pathname);
+      }
+
+      // URL hash에 access_token이 있으면 직접 세션 설정
+      const hash = window.location.hash;
+      if(hash.includes("access_token")){
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        if(accessToken){
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken||"",
+          });
+          window.history.replaceState(null,"",window.location.pathname);
+        }
+      }
+
+      // 세션 확인
+      const { data:{session} } = await supabase.auth.getSession();
+      if(session?.user){
+        const { data: userData } = await supabase
+          .from("users").select("id,nickname,total_study_secs,calendar_data")
+          .eq("id", session.user.id).maybeSingle();
+        if(userData?.nickname){
+          setSt(p=>({
+            ...p,
+            userId: userData.id,
+            nickname: userData.nickname,
+            onboardingDone: true,
+            totalStudySecs: Math.max(p.totalStudySecs, userData.total_study_secs||0),
+            calendarData: mergeCalendarData(p.calendarData, userData.calendar_data||{}),
+          }));
+          setMainVis(true);
+          setOnbVis(false);
+          setScreen("main");
+        } else {
+          setOnbVis(true);
+        }
+      } else {
+        setOnbVis(true);
+      }
+      setAuthLoading(false);
+    }
+    handleAuth();
+
+    // 로그인/로그아웃 이벤트 감지
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session)=>{
+      if((event==="SIGNED_IN"||event==="TOKEN_REFRESHED") && session?.user){
+        const { data: userData } = await supabase
+          .from("users").select("id,nickname,total_study_secs,calendar_data")
+          .eq("id", session.user.id).maybeSingle();
+        if(userData?.nickname){
+          setSt(p=>({
+            ...p,
+            userId: userData.id,
+            nickname: userData.nickname,
+            onboardingDone: true,
+            totalStudySecs: Math.max(p.totalStudySecs, userData.total_study_secs||0),
+            calendarData: mergeCalendarData(p.calendarData, userData.calendar_data||{}),
+          }));
+          setMainVis(true);
+          setOnbVis(false);
+          setScreen("main");
+        } else {
+          // 로그인됐는데 닉네임 없음 → 닉네임 설정
+          setOnbVis(true);
+          setAuthLoading(false);
+        }
+      } else if(event==="SIGNED_OUT"){
+        setSt({...DEF});
+        setScreen("onboarding");
+        setOnbVis(true);
+        setMainVis(false);
+      }
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+  useEffect(()=>{
+    if(!st.onboardingDone||!st.nickname) return;
+    if(st.userId) return;
+
+    async function registerUser(){
+      try {
+        // 닉네임으로 기존 유저 찾기
+        const { data: existing } = await supabase
+          .from("users")
+          .select("id, total_study_secs, calendar_data")
+          .eq("nickname", st.nickname)
+          .maybeSingle();
+
+        if(existing){
+          // 기존 유저 → 클라우드 데이터로 병합 (더 큰 값 우선)
+          setSt(p=>({
+            ...p,
+            userId: existing.id,
+            totalStudySecs: Math.max(p.totalStudySecs, existing.total_study_secs||0),
+            calendarData: existing.calendar_data
+              ? mergeCalendarData(p.calendarData, existing.calendar_data)
+              : p.calendarData,
+          }));
+        } else {
+          // 신규 유저 생성
+          const { data: newUser } = await supabase
+            .from("users")
+            .insert({ nickname: st.nickname, total_study_secs: st.totalStudySecs, calendar_data: st.calendarData })
+            .select("id")
+            .single();
+          if(newUser) setSt(p=>({...p, userId: newUser.id}));
+        }
+      } catch(e){ console.error("유저 등록 실패:", e); }
+    }
+    registerUser();
+  },[st.onboardingDone, st.nickname]);
+
+  // ── Supabase: 공부 데이터 30초마다 백업 ──
+  useEffect(()=>{
+    if(!st.userId) return;
+    const t=setInterval(async()=>{
+      try {
+        await supabase.from("users").update({
+          total_study_secs: st.totalStudySecs,
+          calendar_data: st.calendarData,
+          last_study_date: st.lastStudyDate,
+        }).eq("id", st.userId);
+      } catch(e){ console.error("백업 실패:", e); }
+    }, 30000);
+    return()=>clearInterval(t);
+  },[st.userId, st.totalStudySecs]);
+
+  // ── Supabase: 대결 멤버 실시간 구독 ──
+  useEffect(()=>{
+    const activeBattleIds = st.battles
+      .filter(b=>b.status==="active"&&b.supabaseId)
+      .map(b=>b.supabaseId);
+    if(!activeBattleIds.length) return;
+
+    const channel = supabase
+      .channel("battle-members-realtime")
+      .on("postgres_changes",{
+        event:"*", schema:"public", table:"battle_members",
+      }, payload=>{
+        const row = payload.new;
+        if(!row||!activeBattleIds.includes(row.battle_id)) return;
+        // 내 자신은 업데이트 무시
+        if(row.user_id===st.userId) return;
+        // 해당 대결의 members 업데이트
+        setSt(p=>({
+          ...p,
+          battles: p.battles.map(b=>{
+            if(b.supabaseId!==row.battle_id) return b;
+            const exists = (b.members||[]).find(m=>m.userId===row.user_id);
+            if(exists){
+              return {...b, members: b.members.map(m=>
+                m.userId===row.user_id
+                  ? {...m, secs:row.today_secs||0, isStudying:row.is_studying||false}
+                  : m
+              )};
+            } else {
+              return {...b, members:[...(b.members||[]),{
+                userId: row.user_id,
+                name: row.nickname,
+                secs: row.today_secs||0,
+                isStudying: row.is_studying||false,
+              }]};
+            }
+          }),
+        }));
+      })
+      .subscribe();
+
+    return()=>supabase.removeChannel(channel);
+  },[st.userId, st.battles.filter(b=>b.status==="active").length]);
+
   function handleTabChange(id){
     if(timerRunning&&id!=="timer") return;
     setTab(id);
@@ -1442,11 +1954,11 @@ export default function App() {
   function saveNick(){ if(nickInput.trim()){ setSt(p=>({...p,nickname:nickInput.trim()})); } setEditingNick(false); }
 
   // 닉네임 → 메인 (D: 슬라이드)
-  function finishOnboarding(nick){
-    setSt(p=>({...p,nickname:nick,onboardingDone:true}));
-    setMainVis(true);      // 메인 오른쪽에서 들어오기 시작
+  function finishOnboarding(nick, userId){
+    setSt(p=>({...p,nickname:nick,onboardingDone:true,userId:userId||p.userId}));
+    setMainVis(true);
     setTimeout(()=>{
-      setOnbVis(false);    // 온보딩 왼쪽으로 나가기
+      setOnbVis(false);
     }, 30);
     setTimeout(()=>setScreen("main"), 900);
   }
@@ -1493,6 +2005,16 @@ export default function App() {
 
   return (
     <div style={{position:"fixed",inset:0,background:"#0d1f0d",overflow:"hidden"}}>
+
+      {/* 인증 로딩 중 */}
+      {authLoading&&(
+        <div style={{position:"fixed",inset:0,zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",background:"#0d1f0d"}}>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:16}}>⚾</div>
+            <p style={{fontFamily:"'Oswald',sans-serif",fontSize:16,color:"rgba(255,255,255,0.5)",letterSpacing:3,margin:0}}>STUDY DUEL</p>
+          </div>
+        </div>
+      )}
 
       {/* 메인 앱 */}
       <div style={mainLayerStyle}>
