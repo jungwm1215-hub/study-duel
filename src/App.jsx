@@ -1797,8 +1797,10 @@ export default function App() {
       } else if(event==="INITIAL_SESSION"){
         if(!session){
           setOnbVis(true);
-          setAuthLoading(false);
         }
+        setAuthLoading(false);
+      } else {
+        setAuthLoading(false);
       }
     });
 
