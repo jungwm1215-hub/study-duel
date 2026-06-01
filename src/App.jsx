@@ -1766,59 +1766,7 @@ export default function App() {
 
   // ── Supabase Auth: 로그인 상태 감지 ──
   useEffect(()=>{
-    async function handleAuth(){
-      // PKCE: URL에 ?code= 파라미터가 있으면 세션 교환
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get("code");
-      if(code){
-        await supabase.auth.exchangeCodeForSession(code);
-        window.history.replaceState(null,"",window.location.pathname);
-      }
-
-      // URL hash에 access_token이 있으면 직접 세션 설정
-      const hash = window.location.hash;
-      if(hash.includes("access_token")){
-        const params = new URLSearchParams(hash.substring(1));
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
-        if(accessToken){
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken||"",
-          });
-          window.history.replaceState(null,"",window.location.pathname);
-        }
-      }
-
-      // 세션 확인
-      const { data:{session} } = await supabase.auth.getSession();
-      if(session?.user){
-        const { data: userData } = await supabase
-          .from("users").select("id,nickname,total_study_secs,calendar_data")
-          .eq("id", session.user.id).maybeSingle();
-        if(userData?.nickname){
-          setSt(p=>({
-            ...p,
-            userId: userData.id,
-            nickname: userData.nickname,
-            onboardingDone: true,
-            totalStudySecs: Math.max(p.totalStudySecs, userData.total_study_secs||0),
-            calendarData: mergeCalendarData(p.calendarData, userData.calendar_data||{}),
-          }));
-          setMainVis(true);
-          setOnbVis(false);
-          setScreen("main");
-        } else {
-          setOnbVis(true);
-        }
-      } else {
-        setOnbVis(true);
-      }
-      setAuthLoading(false);
-    }
-    handleAuth();
-
-    // 로그인/로그아웃 이벤트 감지
+    // 1) 먼저 리스너 등록
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session)=>{
       if((event==="SIGNED_IN"||event==="TOKEN_REFRESHED") && session?.user){
         const { data: userData } = await supabase
@@ -1837,17 +1785,34 @@ export default function App() {
           setOnbVis(false);
           setScreen("main");
         } else {
-          // 로그인됐는데 닉네임 없음 → 닉네임 설정
           setOnbVis(true);
-          setAuthLoading(false);
         }
+        setAuthLoading(false);
       } else if(event==="SIGNED_OUT"){
         setSt({...DEF});
         setScreen("onboarding");
         setOnbVis(true);
         setMainVis(false);
+        setAuthLoading(false);
+      } else if(event==="INITIAL_SESSION"){
+        if(!session){
+          setOnbVis(true);
+          setAuthLoading(false);
+        }
       }
     });
+
+    // 2) 그 다음 코드 교환
+    async function handleCode(){
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      if(code){
+        window.history.replaceState(null,"",window.location.pathname);
+        await supabase.auth.exchangeCodeForSession(code);
+      }
+    }
+    handleCode();
+
     return()=>subscription.unsubscribe();
   },[]);
   useEffect(()=>{
