@@ -152,7 +152,7 @@ function StadiumBg() {
       <div style={{position:"absolute",bottom:"216px",left:"50%",transform:"translateX(-50%)",width:"30px",height:"30px",borderRadius:"50%",background:"#b8763a"}}/>
       <div style={{position:"absolute",bottom:"308px",left:"50%",width:"2px",height:"260px",background:"rgba(255,255,255,0.35)",transformOrigin:"bottom center",transform:"rotate(-42deg)"}}/>
       <div style={{position:"absolute",bottom:"308px",left:"50%",width:"2px",height:"260px",background:"rgba(255,255,255,0.35)",transformOrigin:"bottom center",transform:"rotate(42deg)"}}/>
-      {[{top:"env(safe-area-inset-top, 20px)",left:"20px"},{top:"env(safe-area-inset-top, 20px)",right:"20px"},{top:"calc(env(safe-area-inset-top, 20px) + 25px)",left:"68px"},{top:"calc(env(safe-area-inset-top, 20px) + 25px)",right:"68px"}].map((s,i)=>(
+      {[{top:"30px",left:"20px"},{top:"30px",right:"20px"},{top:"55px",left:"68px"},{top:"55px",right:"68px"}].map((s,i)=>(
         <div key={i} style={{position:"absolute",width:"14px",height:"14px",borderRadius:"50%",background:"#fffde7",boxShadow:"0 0 12px #fffde7, 0 0 24px rgba(255,253,231,0.4)",opacity:0.85,...s}}/>
       ))}
       <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.54)"}}/>
@@ -1976,7 +1976,7 @@ export default function App() {
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"#000",overflow:"hidden"}}>
+    <div style={{position:"fixed",inset:0,background:"#0d1f0d",overflow:"hidden"}}>
 
       {/* 인증 로딩 중 */}
       {authLoading&&(
