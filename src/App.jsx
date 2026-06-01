@@ -2007,7 +2007,7 @@ export default function App() {
               {tab==="calendar"&&<CalendarTab st={st} setSt={setSt}/>}
               {tab==="history"&&<HistoryTab st={st}/>}
             </div>
-            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(0,0,0,0.85)",borderTop:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(10px)",display:"flex",zIndex:10,paddingBottom:"env(safe-area-inset-bottom)"}}>
+            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(0,0,0,0.85)",borderTop:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(10px)",display:"flex",zIndex:10,paddingBottom:"max(env(safe-area-inset-bottom), 8px)"}}>
               {TABS.map(t=>(
                 <button key={t.id} onClick={()=>handleTabChange(t.id)} style={{flex:1,padding:"14px 0",background:"transparent",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:timerRunning&&t.id!=="timer"?"not-allowed":"pointer",opacity:timerRunning&&t.id!=="timer"?0.3:1}}>
                   <span style={{fontSize:18}}>{t.icon}</span>
