@@ -1810,6 +1810,21 @@ export default function App() {
         window.history.replaceState(null,"",window.location.pathname);
         await supabase.auth.exchangeCodeForSession(code);
       }
+
+      // hash에 access_token이 있으면 처리
+      const hash = window.location.hash;
+      if(hash.includes("access_token")){
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        if(accessToken && refreshToken){
+          window.history.replaceState(null,"",window.location.pathname);
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+        }
+      }
     }
     handleCode();
 
