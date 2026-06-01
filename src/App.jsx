@@ -1802,28 +1802,14 @@ export default function App() {
       }
     });
 
-    // 2) 그 다음 코드 교환
+    // Supabase가 detectSessionInUrl로 자동 처리
+    // 코드 교환만 처리 (PKCE fallback)
     async function handleCode(){
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
       if(code){
         window.history.replaceState(null,"",window.location.pathname);
         await supabase.auth.exchangeCodeForSession(code);
-      }
-
-      // hash에 access_token이 있으면 처리
-      const hash = window.location.hash;
-      if(hash.includes("access_token")){
-        const params = new URLSearchParams(hash.substring(1));
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
-        if(accessToken && refreshToken){
-          window.history.replaceState(null,"",window.location.pathname);
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-        }
       }
     }
     handleCode();
