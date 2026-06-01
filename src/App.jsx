@@ -144,7 +144,7 @@ function StadiumBg() {
   return (
     <div style={{position:"absolute",inset:0,overflow:"hidden",zIndex:0}}>
       <div style={{position:"absolute",inset:0,background:"#0d1f0d"}}/>
-      <div style={{position:"absolute",bottom:"-80px",left:"50%",transform:"translateX(-50%)",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle at center,#8b5a2b 0%,#8b5a2b 18%,#1a5c1a 19%,#1d661d 25%,#1a5c1a 31%,#1d661d 37%,#1a5c1a 43%,#1d661d 49%,#1a5c1a 56%,#1d661d 62%,#1a5c1a 70%)"}}/>
+      <div style={{position:"absolute",bottom:"-280px",left:"50%",transform:"translateX(-50%)",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle at center,#8b5a2b 0%,#8b5a2b 18%,#1a5c1a 19%,#1d661d 25%,#1a5c1a 31%,#1d661d 37%,#1a5c1a 43%,#1d661d 49%,#1a5c1a 56%,#1d661d 62%,#1a5c1a 70%)"}}/>
       <div style={{position:"absolute",bottom:"120px",left:"50%",transform:"translateX(-50%) rotate(45deg)",width:"190px",height:"190px",background:"#c4893d",border:"3px solid rgba(255,255,255,0.75)"}}/>
       {[{bottom:"313px",left:"50%",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"218px",left:"calc(50% + 95px)",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"120px",left:"50%",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"218px",left:"calc(50% - 95px)",transform:"translateX(-50%) rotate(-45deg)"}].map((s,i)=>(
         <div key={i} style={{position:"absolute",width:"18px",height:"18px",background:"white",borderRadius:"3px",...s}}/>
