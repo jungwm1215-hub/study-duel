@@ -144,14 +144,14 @@ function StadiumBg() {
   return (
     <div style={{position:"absolute",inset:0,overflow:"hidden",zIndex:0}}>
       <div style={{position:"absolute",inset:0,background:"#0d1f0d"}}/>
-      <div style={{position:"absolute",bottom:"-220px",left:"50%",transform:"translateX(-50%)",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle at center,#8b5a2b 0%,#8b5a2b 18%,#1a5c1a 19%,#1d661d 25%,#1a5c1a 31%,#1d661d 37%,#1a5c1a 43%,#1d661d 49%,#1a5c1a 56%,#1d661d 62%,#1a5c1a 70%)"}}/>
-      <div style={{position:"absolute",bottom:"-20px",left:"50%",transform:"translateX(-50%) rotate(45deg)",width:"190px",height:"190px",background:"#c4893d",border:"3px solid rgba(255,255,255,0.75)"}}/>
-      {[{bottom:"173px",left:"50%",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"78px",left:"calc(50% + 95px)",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"-20px",left:"50%",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"78px",left:"calc(50% - 95px)",transform:"translateX(-50%) rotate(-45deg)"}].map((s,i)=>(
+      <div style={{position:"absolute",bottom:"-80px",left:"50%",transform:"translateX(-50%)",width:"700px",height:"700px",borderRadius:"50%",background:"radial-gradient(circle at center,#8b5a2b 0%,#8b5a2b 18%,#1a5c1a 19%,#1d661d 25%,#1a5c1a 31%,#1d661d 37%,#1a5c1a 43%,#1d661d 49%,#1a5c1a 56%,#1d661d 62%,#1a5c1a 70%)"}}/>
+      <div style={{position:"absolute",bottom:"120px",left:"50%",transform:"translateX(-50%) rotate(45deg)",width:"190px",height:"190px",background:"#c4893d",border:"3px solid rgba(255,255,255,0.75)"}}/>
+      {[{bottom:"313px",left:"50%",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"218px",left:"calc(50% + 95px)",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"120px",left:"50%",transform:"translateX(-50%) rotate(-45deg)"},{bottom:"218px",left:"calc(50% - 95px)",transform:"translateX(-50%) rotate(-45deg)"}].map((s,i)=>(
         <div key={i} style={{position:"absolute",width:"18px",height:"18px",background:"white",borderRadius:"3px",...s}}/>
       ))}
-      <div style={{position:"absolute",bottom:"76px",left:"50%",transform:"translateX(-50%)",width:"30px",height:"30px",borderRadius:"50%",background:"#b8763a"}}/>
-      <div style={{position:"absolute",bottom:"168px",left:"50%",width:"2px",height:"260px",background:"rgba(255,255,255,0.35)",transformOrigin:"bottom center",transform:"rotate(-42deg)"}}/>
-      <div style={{position:"absolute",bottom:"168px",left:"50%",width:"2px",height:"260px",background:"rgba(255,255,255,0.35)",transformOrigin:"bottom center",transform:"rotate(42deg)"}}/>
+      <div style={{position:"absolute",bottom:"216px",left:"50%",transform:"translateX(-50%)",width:"30px",height:"30px",borderRadius:"50%",background:"#b8763a"}}/>
+      <div style={{position:"absolute",bottom:"308px",left:"50%",width:"2px",height:"260px",background:"rgba(255,255,255,0.35)",transformOrigin:"bottom center",transform:"rotate(-42deg)"}}/>
+      <div style={{position:"absolute",bottom:"308px",left:"50%",width:"2px",height:"260px",background:"rgba(255,255,255,0.35)",transformOrigin:"bottom center",transform:"rotate(42deg)"}}/>
       {[{top:"env(safe-area-inset-top, 20px)",left:"20px"},{top:"env(safe-area-inset-top, 20px)",right:"20px"},{top:"calc(env(safe-area-inset-top, 20px) + 25px)",left:"68px"},{top:"calc(env(safe-area-inset-top, 20px) + 25px)",right:"68px"}].map((s,i)=>(
         <div key={i} style={{position:"absolute",width:"14px",height:"14px",borderRadius:"50%",background:"#fffde7",boxShadow:"0 0 12px #fffde7, 0 0 24px rgba(255,253,231,0.4)",opacity:0.85,...s}}/>
       ))}
@@ -1976,7 +1976,7 @@ export default function App() {
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"#0d1f0d",overflow:"hidden"}}>
+    <div style={{position:"fixed",inset:0,background:"#000",overflow:"hidden"}}>
 
       {/* 인증 로딩 중 */}
       {authLoading&&(
@@ -2007,7 +2007,7 @@ export default function App() {
               {tab==="calendar"&&<CalendarTab st={st} setSt={setSt}/>}
               {tab==="history"&&<HistoryTab st={st}/>}
             </div>
-            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(0,0,0,0.85)",borderTop:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(10px)",display:"flex",zIndex:10,paddingBottom:"max(env(safe-area-inset-bottom), 8px)"}}>
+            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,background:"rgba(0,0,0,0.85)",borderTop:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(10px)",display:"flex",zIndex:10,paddingBottom:"env(safe-area-inset-bottom)"}}>
               {TABS.map(t=>(
                 <button key={t.id} onClick={()=>handleTabChange(t.id)} style={{flex:1,padding:"14px 0",background:"transparent",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:timerRunning&&t.id!=="timer"?"not-allowed":"pointer",opacity:timerRunning&&t.id!=="timer"?0.3:1}}>
                   <span style={{fontSize:18}}>{t.icon}</span>
