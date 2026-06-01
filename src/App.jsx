@@ -1766,8 +1766,12 @@ export default function App() {
 
   // ── Supabase Auth: 로그인 상태 감지 ──
   useEffect(()=>{
+    // 5초 후에도 로딩 중이면 강제로 풀기
+    const timeout = setTimeout(()=>{ setAuthLoading(false); setOnbVis(true); }, 5000);
+
     // 1) 먼저 리스너 등록
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session)=>{
+      clearTimeout(timeout);
       if((event==="SIGNED_IN"||event==="TOKEN_REFRESHED") && session?.user){
         const { data: userData } = await supabase
           .from("users").select("id,nickname,total_study_secs,calendar_data")
@@ -1816,7 +1820,7 @@ export default function App() {
     }
     handleCode();
 
-    return()=>subscription.unsubscribe();
+    return()=>{ subscription.unsubscribe(); clearTimeout(timeout); };
   },[]);
   useEffect(()=>{
     if(!st.onboardingDone||!st.nickname) return;
