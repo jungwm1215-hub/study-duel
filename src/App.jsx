@@ -967,17 +967,67 @@ function TimerFullscreen({st,setSt,timerSec,swSec,running,setRunning,mode,pomoPh
   const myStudySecs=st.lastStudyDate===today?st.todayStudySecs:0;
   const [selectedBattleId,setSelectedBattleId]=useState(activeBattles[0]?.id||null);
   const selectedBattle=activeBattles.find(b=>b.id===selectedBattleId)||activeBattles[0]||null;
+
+  // 실제 멤버 상태 (Supabase realtime)
   const [memberStatus,setMemberStatus]=useState(()=>
     activeBattles.flatMap(b=>(b.members||[]).map(m=>({
       ...m,
       battleId:b.id,
-      isStudying:Math.random()>0.4,
+      isStudying:false,   // 실제 데이터 올 때까지 false
       secs:m.secs||0,
       isMe:false,
     })))
   );
 
-  // 공부 중인 멤버 시간 누적 (1초마다)
+  // Supabase realtime 구독 - battle_members 변경 감지
+  useEffect(()=>{
+    if(activeBattles.length===0) return;
+    const battleIds=activeBattles.map(b=>b.id);
+
+    // 초기 데이터 로드
+    async function loadMembers(){
+      const {data}=await supabase
+        .from("battle_members")
+        .select("*")
+        .in("battle_id", battleIds);
+      if(data){
+        setMemberStatus(data
+          .filter(m=>m.nickname!==st.nickname) // 본인 제외
+          .map(m=>({
+            name:m.nickname,
+            battleId:m.battle_id,
+            isStudying:m.is_studying||false,
+            secs:m.total_secs||0,
+            isMe:false,
+          }))
+        );
+      }
+    }
+    loadMembers();
+
+    // 실시간 변경 구독
+    const channel=supabase.channel("battle_members_realtime")
+      .on("postgres_changes",{
+        event:"*",
+        schema:"public",
+        table:"battle_members",
+        filter:`battle_id=in.(${battleIds.join(",")})`,
+      },(payload)=>{
+        const m=payload.new;
+        if(!m||m.nickname===st.nickname) return;
+        setMemberStatus(prev=>{
+          const idx=prev.findIndex(x=>x.battleId===m.battle_id&&x.name===m.nickname);
+          const entry={name:m.nickname,battleId:m.battle_id,isStudying:m.is_studying||false,secs:m.total_secs||0,isMe:false};
+          if(idx>=0){ const n=[...prev]; n[idx]=entry; return n; }
+          return [...prev, entry];
+        });
+      })
+      .subscribe();
+
+    return()=>{ supabase.removeChannel(channel); };
+  },[activeBattles.length]);
+
+  // 공부 중인 멤버 시간 누적 (1초마다, 로컬 추정)
   useEffect(()=>{
     if(!running) return;
     const t=setInterval(()=>{
