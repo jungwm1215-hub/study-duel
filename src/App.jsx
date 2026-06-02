@@ -419,28 +419,29 @@ function BattleCard({battle,st,setSt,myStudySecs}) {
 
   return (
     <Card style={{padding:"12px 14px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <div style={{width:7,height:7,borderRadius:"50%",background:"#ef5350"}}/>
-          <p style={{fontSize:10,color:"#ef5350",margin:0,letterSpacing:1}}>LIVE</p>
-          {battle.name&&<span style={{fontSize:11,color:"rgba(255,255,255,0.7)",fontWeight:500}}>{battle.name}</span>}
-          {isGroup&&<span style={{fontSize:10,color:"rgba(255,255,255,0.4)",background:"rgba(255,255,255,0.08)",padding:"1px 7px",borderRadius:10}}>그룹 {members.length}명</span>}
+      {/* 헤더 1줄: LIVE + 대결명 + X */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+          <div style={{width:7,height:7,borderRadius:"50%",background:"#ef5350",flexShrink:0}}/>
+          <p style={{fontSize:10,color:"#ef5350",margin:0,letterSpacing:1,flexShrink:0}}>LIVE</p>
+          {battle.name&&<span style={{fontSize:12,color:"#fff",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{battle.name}</span>}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {/* 대결 방식 뱃지 */}
-          <span style={{fontSize:9,color:battle.mode==="goal"?"#f5c518":"#66bb6a",background:battle.mode==="goal"?"rgba(245,197,24,0.1)":"rgba(102,187,106,0.1)",border:`1px solid ${battle.mode==="goal"?"rgba(245,197,24,0.25)":"rgba(102,187,106,0.25)"}`,padding:"2px 7px",borderRadius:20,letterSpacing:0.5}}>
-            {battle.mode==="goal"?`🎯 목표 ${Math.floor((battle.goalSecs||0)/3600)}h`:"⏱ 최다 시간"}
-          </span>
-          <span style={{fontSize:10,color:"rgba(255,255,255,0.4)",background:"rgba(255,255,255,0.08)",padding:"2px 8px",borderRadius:20}}>D-{Math.max(0,dLeft)}</span>
-          {battle.code&&(
-            <button onClick={copyCode}
-              style={{fontSize:9,color:codeCopied?"#66bb6a":"rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",padding:"2px 7px",borderRadius:20,cursor:"pointer",letterSpacing:0.5}}>
-              {codeCopied?"✓ 복사됨":`🔑 ${battle.code}`}
-            </button>
-          )}
-          <button onClick={()=>setSt(p=>({...p,battles:p.battles.map(b=>b.id===battle.id?{...b,status:"cancelled"}:b)}))}
-            style={{background:"transparent",border:"none",color:"rgba(255,77,109,0.5)",fontSize:16,cursor:"pointer",padding:"0 2px",lineHeight:1}}>×</button>
-        </div>
+        <button onClick={()=>setSt(p=>({...p,battles:p.battles.map(b=>b.id===battle.id?{...b,status:"cancelled"}:b)}))}
+          style={{background:"transparent",border:"none",color:"rgba(255,77,109,0.5)",fontSize:16,cursor:"pointer",padding:"0 2px",lineHeight:1,flexShrink:0}}>×</button>
+      </div>
+      {/* 헤더 2줄: 뱃지들 */}
+      <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:10}}>
+        {isGroup&&<span style={{fontSize:10,color:"rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.08)",padding:"2px 7px",borderRadius:10}}>그룹 {members.length}명</span>}
+        <span style={{fontSize:10,color:battle.mode==="goal"?"#f5c518":"#66bb6a",background:battle.mode==="goal"?"rgba(245,197,24,0.1)":"rgba(102,187,106,0.1)",border:`1px solid ${battle.mode==="goal"?"rgba(245,197,24,0.25)":"rgba(102,187,106,0.25)"}`,padding:"2px 7px",borderRadius:10}}>
+          {battle.mode==="goal"?`🎯 목표 ${Math.floor((battle.goalSecs||0)/3600)}h`:"⏱ 최다 시간"}
+        </span>
+        <span style={{fontSize:10,color:"rgba(255,255,255,0.4)",background:"rgba(255,255,255,0.08)",padding:"2px 7px",borderRadius:10}}>D-{Math.max(0,dLeft)}</span>
+        {battle.code&&(
+          <button onClick={copyCode}
+            style={{fontSize:10,color:codeCopied?"#66bb6a":"rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",padding:"2px 7px",borderRadius:10,cursor:"pointer"}}>
+            {codeCopied?"✓ 복사됨":`🔑 ${battle.code}`}
+          </button>
+        )}
       </div>
 
       {!isGroup&&(()=>{
