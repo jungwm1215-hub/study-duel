@@ -84,7 +84,7 @@ function DailyGreet({st,setSt,onDone}) {
   return (
     <div style={{position:"fixed",inset:0,zIndex:999,overflow:"hidden",display:"flex",justifyContent:"center",
       animation:leaving?"fadeOut 1.0s ease-out forwards":"none"}}>
-      <div style={{width:"100%",maxWidth:430,position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 32px"}}>
+      <div style={{width:"100%",maxWidth:430,position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(env(safe-area-inset-top,40px),40px) 32px 40px"}}>
         <StadiumBg/>
         <div style={{position:"relative",zIndex:1,width:"100%",textAlign:"center"}}>
           {/* 앱 이름 */}
@@ -239,7 +239,7 @@ function Onboarding({onDone}) {
   return (
     <div style={{position:"fixed",inset:0,zIndex:999,overflow:"hidden",display:"flex",justifyContent:"center",background:"#0d1f0d",
       animation:leaving?"slideOutLeft 1.0s ease-in-out forwards":"none"}}>
-      <div style={{width:"100%",maxWidth:430,position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px"}}>
+      <div style={{width:"100%",maxWidth:430,position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(env(safe-area-inset-top,32px),32px) 32px 32px"}}>
         <StadiumBg/>
         <div style={{position:"relative",zIndex:1,width:"100%",textAlign:"center"}}>
           <div style={{fontSize:52,marginBottom:16}}>⚾</div>
@@ -1993,7 +1993,7 @@ export default function App() {
         <div style={{height:"100%",overflowY:"auto",display:"flex",justifyContent:"center",overscrollBehavior:"none",WebkitOverflowScrolling:"touch"}}>
           <div style={{width:"100%",maxWidth:430,position:"relative",minHeight:"100%"}}>
             <StadiumBg/>
-            <div style={{position:"relative",zIndex:1,paddingTop:"max(env(safe-area-inset-top), 44px)",paddingBottom:70}}>
+            <div style={{position:"relative",zIndex:1,paddingTop:"max(env(safe-area-inset-top, 44px), 44px)",paddingBottom:70}}>
               <div style={{padding:"0 16px 8px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <p style={{fontFamily:"'Oswald',sans-serif",fontSize:20,color:"#fff",letterSpacing:3,margin:0}}>STUDY DUEL</p>
                 <button onClick={openNickEdit} style={{background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:20,padding:"4px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
