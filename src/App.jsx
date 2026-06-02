@@ -640,26 +640,23 @@ function DateRangePicker({startDate,endDate,onChange}) {
 function BattleTab({st,setSt,setTab}) {
   const [type,setType]=useState("1v1");
   const [battleName,setBattleName]=useState("");
-  const [opponents,setOpponents]=useState([""]);
+  const [maxMembers,setMaxMembers]=useState(4);
   const [startDate,setStartDate]=useState(todayStr());
   const [endDate,setEndDate]=useState(()=>{ const d=new Date(); d.setDate(d.getDate()+7); return localDateStr(d); });
   const [mode,setMode]=useState("most");
   const [goalHours,setGoalHours]=useState(30);
   const [penalty,setPenalty]=useState("");
   const [creating,setCreating]=useState(false);
+  const [createdBattle,setCreatedBattle]=useState(null); // 생성 완료 후 초대코드 표시용
   const [joinCode,setJoinCode]=useState("");
   const [joining,setJoining]=useState(false);
   const [joinError,setJoinError]=useState("");
   const [tabMode,setTabMode]=useState("create"); // "create" | "join"
   const activeBattle=st.battles.find(b=>b.status==="active");
 
-  function addOpponent(){ if(opponents.length<9) setOpponents(v=>[...v,""]); }
-  function setOpp(i,val){ setOpponents(v=>v.map((o,j)=>j===i?val:o)); }
-  function removeOpp(i){ setOpponents(v=>v.filter((_,j)=>j!==i)); }
 
   async function createBattle(){
-    const filtered=opponents.filter(o=>o.trim());
-    if(!battleName.trim()||!filtered.length||!penalty.trim()) return;
+    if(!battleName.trim()||!penalty.trim()) return;
     setCreating(true);
     const days=Math.ceil((new Date(endDate)-new Date(startDate))/86400000)+1;
 
@@ -714,10 +711,11 @@ function BattleTab({st,setSt,setTab}) {
       const battle={
         id: battleRow.id,        // Supabase UUID 사용
         supabaseId: battleRow.id,
-        code: battleRow.code,    // 초대코드
+        code: battleRow.code,
         type,
         name: battleName.trim()||null,
-        members: filtered.map(name=>({name,secs:0,isStudying:false})),
+        members: [],
+        maxMembers,
         penalty, mode, days,
         goalSecs: goalHours*3600,
         startDate, endDate,
@@ -725,14 +723,15 @@ function BattleTab({st,setSt,setTab}) {
         dailyStudy:{},
       };
       setSt(p=>({...p,battles:[...p.battles,battle]}));
-      setTab("main");
+      setCreatedBattle({code:battleRow.code, name:battleName.trim()});
     } catch(e) {
       console.error("대결 생성 실패:", e);
       // Supabase 실패해도 로컬에는 저장
       const battle={
         id:++_id, type,
         name:battleName.trim()||null,
-        members:filtered.map(name=>({name,secs:0,isStudying:false})),
+        members:[],
+        maxMembers,
         penalty, mode, days,
         goalSecs:goalHours*3600,
         startDate, endDate,
@@ -813,6 +812,28 @@ function BattleTab({st,setSt,setTab}) {
 
 
 
+  // 초대코드 모달
+  if(createdBattle) return (
+    <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:16,alignItems:"center",justifyContent:"center",minHeight:"60vh"}}>
+      <div style={{fontSize:40}}>🎉</div>
+      <p style={{fontFamily:"'Oswald',sans-serif",fontSize:18,color:"#fff",letterSpacing:2,margin:0,textAlign:"center"}}>{createdBattle.name}</p>
+      <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",margin:0}}>대결이 생성됐어요!</p>
+      <Card style={{width:"100%",padding:"20px",textAlign:"center"}}>
+        <p style={{fontSize:10,color:"rgba(255,255,255,0.35)",margin:"0 0 10px",letterSpacing:2}}>초대 코드</p>
+        <p style={{fontFamily:"'Oswald',sans-serif",fontSize:42,color:"#42a5f5",margin:"0 0 8px",letterSpacing:6}}>{createdBattle.code}</p>
+        <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",margin:"0 0 16px"}}>친구에게 이 코드를 알려주세요</p>
+        <button onClick={()=>{ navigator.clipboard?.writeText(createdBattle.code); }}
+          style={{background:"rgba(66,165,245,0.15)",border:"1px solid rgba(66,165,245,0.3)",borderRadius:10,padding:"10px 24px",color:"#42a5f5",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+          코드 복사 📋
+        </button>
+      </Card>
+      <button onClick={()=>{ setCreatedBattle(null); setTab("main"); }}
+        style={{width:"100%",padding:"13px",background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:12,color:"#fff",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+        홈으로 →
+      </button>
+    </div>
+  );
+
   return (
     <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:10}}>
       <p style={{fontFamily:"'Oswald',sans-serif",fontSize:16,color:"rgba(255,255,255,0.9)",letterSpacing:2,margin:0}}>대결</p>
@@ -864,24 +885,20 @@ function BattleTab({st,setSt,setTab}) {
           </div>
         </div>
 
-        {/* 상대 입력 */}
-        <div>
-          <p style={{fontSize:10,color:"rgba(255,255,255,0.4)",margin:"0 0 6px",letterSpacing:1}}>{type==="1v1"?"상대방 이름":"멤버 추가"}</p>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {opponents.map((o,i)=>(
-              <div key={i} style={{display:"flex",gap:6}}>
-                <input value={o} onChange={e=>setOpp(i,e.target.value)} placeholder={`${type==="group"?`멤버 ${i+1}`:"상대방"} 닉네임...`}
-                  style={{flex:1,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"9px 12px",color:"#fff",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                {type==="group"&&opponents.length>1&&(
-                  <button onClick={()=>removeOpp(i)} style={{background:"rgba(239,83,80,0.15)",border:"1px solid rgba(239,83,80,0.2)",borderRadius:8,width:36,color:"#ef5350",cursor:"pointer",fontSize:16,flexShrink:0}}>×</button>
-                )}
-              </div>
-            ))}
-            {type==="group"&&opponents.length<9&&(
-              <button onClick={addOpponent} style={{background:"transparent",border:"1px dashed rgba(255,255,255,0.15)",borderRadius:8,padding:"8px",color:"rgba(255,255,255,0.35)",fontSize:12,cursor:"pointer"}}>+ 멤버 추가</button>
-            )}
+        {/* 최대 인원 */}
+        {type==="group"&&(
+          <div>
+            <p style={{fontSize:10,color:"rgba(255,255,255,0.4)",margin:"0 0 6px",letterSpacing:1}}>최대 인원</p>
+            <div style={{display:"flex",gap:6}}>
+              {[2,3,4,5,6,8,10].map(n=>(
+                <button key={n} onClick={()=>setMaxMembers(n)}
+                  style={{flex:1,padding:"8px 0",background:maxMembers===n?"rgba(255,255,255,0.15)":"transparent",border:`1px solid ${maxMembers===n?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.12)"}`,borderRadius:8,color:maxMembers===n?"#fff":"rgba(255,255,255,0.4)",fontSize:12,cursor:"pointer"}}>
+                  {n}명
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 기간 설정 */}
         <div>
@@ -921,8 +938,8 @@ function BattleTab({st,setSt,setTab}) {
         </div>
       </Card>
 
-      <button onClick={createBattle} disabled={creating||!battleName.trim()||!opponents.filter(o=>o.trim()).length||!penalty.trim()}
-        style={{width:"100%",padding:13,background:battleName.trim()&&opponents.filter(o=>o.trim()).length&&penalty.trim()?"rgba(255,255,255,0.15)":"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:12,color:battleName.trim()&&opponents.filter(o=>o.trim()).length&&penalty.trim()?"#fff":"rgba(255,255,255,0.25)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+      <button onClick={createBattle} disabled={creating||!battleName.trim()||!penalty.trim()}
+        style={{width:"100%",padding:13,background:battleName.trim()&&penalty.trim()?"rgba(255,255,255,0.15)":"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:12,color:battleName.trim()&&penalty.trim()?"#fff":"rgba(255,255,255,0.25)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
         {creating?"생성 중...":"대결 시작 ⚾"}
       </button>
       </>
